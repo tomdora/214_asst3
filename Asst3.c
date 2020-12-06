@@ -138,13 +138,43 @@ typedef struct Message{
 
 //Function to convert read() message to a Message struct
 Message * convertInput(char * input, int i, Connection * con){
+	//Check to see if the very last index is a '|' character. The main code will already give the client another chance.
+	if(input[strlen(input) - 1] != '|'){
+		printf("%d	ERR|4|M%dFT|\n", i, i);
+		char error[] = "ERR|4|MxFT|";
+		error[7] = i + '0';
+		
+		//Write the error message to the client and return NULL
+		write(con->fd, error, strlen(error));
+		return NULL;
+	}
+	
+	
+	
+	//Now we can get started with the tokenizing
 	Message * x = malloc(sizeof(Message));
-	char * split = strtok(input, "|");
+	char * inputCopy = malloc(strlen(input) + 1);
+	strcpy(inputCopy, input);
+	char * split = strtok(inputCopy, "|");
+	
+	//Make sure that strtok split didn't return NULL; if it did, we don't have the right formatting
+	if(split == NULL){
+		printf("%d	ERR|4|M%dFT|\n", i, i);
+		char error[] = "ERR|4|MxFT|";
+		error[7] = i + '0';
+		
+		//Write the error message to the client and return NULL
+		write(con->fd, error, strlen(error));
+		free(x);
+		free(inputCopy);
+		return NULL;
+	}
 	
 	//First, we want to check if the message is an ERR and return NULL if so
 	if(strcmp(split, "ERR") == 0){
-		printf("%d %s\n", i, input);
+		printf("%d			%s\n", i, input);
 		free(x);
+		free(inputCopy);
 		return NULL;
 	} //Next we check to see if the type isn't "REG"
 	else if(strcmp(split, "REG") != 0){
@@ -155,14 +185,30 @@ Message * convertInput(char * input, int i, Connection * con){
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
 		free(x);
+		free(inputCopy);
 		return NULL;
 	}
 	//If it's "REG" then we can copy to the struct
 	x->type = malloc(strlen(split) + 1);
 	strcpy(x->type, split);
 	
-	//Convert the length into a decimal and set the length
+	//strtok split for the next token
 	split = strtok(NULL, "|");
+	
+	//Make sure that strtok split didn't return NULL; if it did, we don't have the right formatting
+	if(split == NULL){
+		printf("%d	ERR|4|M%dFT|\n", i, i);
+		char error[] = "ERR|4|MxFT|";
+		error[7] = i + '0';
+		
+		//Write the error message to the client and return NULL
+		write(con->fd, error, strlen(error));
+		free(x);
+		free(inputCopy);
+		return NULL;
+	}
+	
+	//Convert the length into a decimal and set the length
 	x->length = atoi(split);
 	//But check if atoi returned 0, which means it failed
 	if(x->length == 0){
@@ -174,11 +220,27 @@ Message * convertInput(char * input, int i, Connection * con){
 		write(con->fd, error, strlen(error));
 		free(x->type);
 		free(x);
+		free(inputCopy);
+		return NULL;
+	}
+	
+	//strtok split for the next token
+	split = strtok(NULL, "|");
+	
+	//Make sure that strtok split didn't return NULL; if it did, we don't have the right formatting
+	if(split == NULL){
+		printf("%d	ERR|4|M%dFT|\n", i, i);
+		char error[] = "ERR|4|MxFT|";
+		error[7] = i + '0';
+		
+		//Write the error message to the client and return NULL
+		write(con->fd, error, strlen(error));
+		free(x);
+		free(inputCopy);
 		return NULL;
 	}
 	
 	//Last, we can copy the content of the message
-	split = strtok(NULL, "|");
 	x->content = malloc(strlen(split) + 1);
 	strcpy(x->content, split);
 	//And then check if the message length is the same as reported
@@ -192,9 +254,11 @@ Message * convertInput(char * input, int i, Connection * con){
 		free(x->content);
 		free(x->type);
 		free(x);
+		free(inputCopy);
 		return NULL;
 	}
 	//Otherwise we're good to go
+	free(inputCopy);
 	return x;
 }
 
@@ -216,20 +280,21 @@ void * joke(void * arg){
         return NULL;
     }
 	
-    printf("[%s:%s] connection\n", host, port);
+    printf("\n[%s:%s] connection\n", host, port);
 	
 	
 	
 	//Send "knock knock" to client
 	char knock[] = "REG|13|Knock, knock.|";
 	write(c->fd, knock, strlen(knock));
-	printf("0	Knock, knock.\n");
+	printf("%s:0		Knock, knock.\n", port);
 	
 	
 	
 	//Wait for "who's there" from client
-	if((nread = read(c->fd, buf, 100)) > 0){
+	while(0 < (nread = read(c->fd, buf, 100))){
         buf[nread] = '\0';
+        printf("read %d bytes %s\n", nread, buf);
         //printf("[%s:%s] read %d bytes %s\n", host, port, nread, buf);
     }
 	if(nread < 7){
@@ -243,25 +308,26 @@ void * joke(void * arg){
 		return NULL;
 	}
 	else if(strcmp(whosThere->content, "Who's there?") != 0){
-		printf("1	ERR|4|M1CT|\n");
+		printf("1		ERR|4|M1CT|\n");
 		char error[] = "ERR|4|M1CT|";
+		write(c->fd, error, strlen(error));
 		//Close the socket and return NULL
 		close(c->fd);
 		free(c);
 		return NULL;
 	}
-	printf("1			%s\n", whosThere->content);
+	printf("%s:1			%s\n", port, whosThere->content);
 	
 	
 	
 	//Send "who" response
 	char response[] = "REG|3|Ya.|";
 	write(c->fd, response, strlen(response));
-	printf("2	Ya.\n");
+	printf("%s:2		Ya.\n", port);
 	
 	
 	
-	//Wait for "who who" from client
+	//Wait for "Ya, who?" from client
 	if((nread = read(c->fd, buf, 100)) > 0){
         buf[nread] = '\0';
         //printf("[%s:%s] read %d bytes %s\n", host, port, nread, buf);
@@ -276,22 +342,24 @@ void * joke(void * arg){
 		free(c);
 		return NULL;
 	}
-	else if(ispunct(whoWho->content[whoWho->length - 1]) == 0){
-		printf("3	ERR|4|M3CT|\n");
+	//Check to see if the content actually matches the expected value
+	else if(strcmp(whoWho->content, "Ya, who?") != 0){
+		printf("3		ERR|4|M3CT|\n");
 		char error[] = "ERR|4|M3CT|";
+		write(c->fd, error, strlen(error));
 		//Close the socket and return NULL
 		close(c->fd);
 		free(c);
 		return NULL;
 	}
-	printf("3			%s\n", whoWho->content);
+	printf("%s:3				%s\n", port, whoWho->content);
 	
 	
 	
 	//Send the punchline to the client
 	char punch[] = "REG|46|No thanks, I don't like having my data stolen.|";
 	write(c->fd, punch, strlen(punch));
-	printf("4	No thanks, I don't like having my data stolen.\n");
+	printf("%s:4		No thanks, I don't like having my data stolen.\n", port);
 	
 	
 	
@@ -310,15 +378,7 @@ void * joke(void * arg){
 		free(c);
 		return NULL;
 	}
-	else if(ispunct(disgust->content[disgust->length - 1]) == 0){
-		printf("5	ERR|4|M5CT|\n");
-		char error[] = "ERR|4|M5CT|";
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	printf("5			%s\n", disgust->content);
+	printf("%s:5				%s\n", port, disgust->content);
 	
 	
 	
