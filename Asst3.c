@@ -316,6 +316,11 @@ void * joke(void * arg){
 	}
     //Make sure that the message isn't too short for anything
 	if(strlen(clientInput) < 7){
+		printf("%s:%d		ERR|M5FT| : message too short\n", port, nmessage);
+		char error[] = "ERR|MxFT|";
+		error[5] = nmessage + '0';
+		write(c->fd, error, strlen(error));
+		//Close the socket and return NULL
 		close(c->fd);
 		free(c);
 		return NULL;
@@ -379,6 +384,13 @@ void * joke(void * arg){
 	}
     //Make sure that the message isn't too short for anything
 	if(strlen(clientInput) < 7){
+		printf("%s:%d		ERR|M5FT| : message too short\n", port, nmessage);
+		char error[] = "ERR|MxFT|";
+		error[5] = nmessage + '0';
+		write(c->fd, error, strlen(error));
+		//Close the socket and return NULL
+		close(c->fd);
+		free(c);
 		return NULL;
 	}
 	//Split the input into tokens and check if it's valid
@@ -441,6 +453,13 @@ void * joke(void * arg){
 	}
     //Make sure that the message isn't too short for anything
 	if(strlen(clientInput) < 7){
+		printf("%s:%d		ERR|M5FT| : message too short\n", port, nmessage);
+		char error[] = "ERR|MxFT|";
+		error[5] = nmessage + '0';
+		write(c->fd, error, strlen(error));
+		//Close the socket and return NULL
+		close(c->fd);
+		free(c);
 		return NULL;
 	}
 	
