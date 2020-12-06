@@ -368,7 +368,7 @@ void * joke(void * arg){
     }
     //If the read times out, it'll return -1, which means most likely a format error
     if(nread == -1){
-		printf("%s:%d		ERR|M1FT| : read -1 error\n", port, nmessage);
+		printf("%s:%d		ERR|M3FT| : read -1 error\n", port, nmessage);
 		char error[] = "ERR|MxFT|";
 		error[5] = nmessage;
 		write(c->fd, error, strlen(error));
@@ -430,7 +430,7 @@ void * joke(void * arg){
     }
     //If the read times out, it'll return -1, which means most likely a format error
     if(nread == -1){
-		printf("%s:%d		ERR|M1FT| : read -1 error\n", port, nmessage);
+		printf("%s:%d		ERR|M5FT| : read -1 error\n", port, nmessage);
 		char error[] = "ERR|MxFT|";
 		error[5] = nmessage;
 		write(c->fd, error, strlen(error));
