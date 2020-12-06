@@ -307,7 +307,7 @@ void * joke(void * arg){
     if(nread == -1){
 		printf("%s:%d		ERR|M1FT| : read -1 error\n", port, nmessage);
 		char error[] = "ERR|MxFT|";
-		error[5] = nmessage;
+		error[5] = nmessage + '0';
 		write(c->fd, error, strlen(error));
 		//Close the socket and return NULL
 		close(c->fd);
@@ -370,7 +370,7 @@ void * joke(void * arg){
     if(nread == -1){
 		printf("%s:%d		ERR|M3FT| : read -1 error\n", port, nmessage);
 		char error[] = "ERR|MxFT|";
-		error[5] = nmessage;
+		error[5] = nmessage + '0';
 		write(c->fd, error, strlen(error));
 		//Close the socket and return NULL
 		close(c->fd);
@@ -432,7 +432,7 @@ void * joke(void * arg){
     if(nread == -1){
 		printf("%s:%d		ERR|M5FT| : read -1 error\n", port, nmessage);
 		char error[] = "ERR|MxFT|";
-		error[5] = nmessage;
+		error[5] = nmessage + '0';
 		write(c->fd, error, strlen(error));
 		//Close the socket and return NULL
 		close(c->fd);
