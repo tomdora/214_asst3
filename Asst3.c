@@ -314,8 +314,9 @@ Message * readClient(Connection * c, char * port, char * expected, int nmessage)
 		free(c);
 		return NULL;
 	}
+	printf("%s received.\n", clientInput);
 	//Split the input into tokens and check if it's valid
-	Message * convertedInput = convertInput(clientInput, 1, c);
+	Message * convertedInput = convertInput(clientInput, nmessage, c);
 	if(convertedInput == NULL){
 		close(c->fd);
 		free(c);
