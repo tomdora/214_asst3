@@ -155,7 +155,7 @@ Message * convertInput(char * input, int i, Connection * con){
 	if(split == NULL){
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
-		printf("%d %s\n", i, error);
+		printf("%d %s : first strtok() failed\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -168,7 +168,7 @@ Message * convertInput(char * input, int i, Connection * con){
 	if(strcmp(split, "REG") != 0){
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
-		printf("%d %s\n", i, error);
+		printf("%d %s : not of type REG\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -187,7 +187,7 @@ Message * convertInput(char * input, int i, Connection * con){
 	if(split == NULL){
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
-		printf("%d %s\n", i, error);
+		printf("%d %s : second strtok() failed\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -219,7 +219,7 @@ Message * convertInput(char * input, int i, Connection * con){
 	if(split == NULL){
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
-		printf("%d %s\n", i, error);
+		printf("%d %s : third strtok() failed\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
