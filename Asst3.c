@@ -129,6 +129,14 @@ int server(char *port){
     return 0;
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
 //Struct for taking the message and breaking it into its parts
 typedef struct Message{
 	char * type;
@@ -145,9 +153,9 @@ Message * convertInput(char * input, int i, Connection * con){
 	
 	//Make sure that strtok split didn't return NULL; if it did, we don't have the right formatting
 	if(split == NULL){
-		printf("%d	ERR|M%dFT|\n", i, i);
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
+		printf("%d %s\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -158,9 +166,9 @@ Message * convertInput(char * input, int i, Connection * con){
 	
 	//First, we want to check to see if the type isn't "REG" (ERR is already handled)
 	if(strcmp(split, "REG") != 0){
-		printf("%d	ERR|M%dFT|\n", i, i);
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
+		printf("%d %s\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -177,9 +185,9 @@ Message * convertInput(char * input, int i, Connection * con){
 	
 	//Make sure that strtok split didn't return NULL; if it did, we don't have the right formatting
 	if(split == NULL){
-		printf("%d	ERR|M%dFT|\n", i, i);
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
+		printf("%d %s\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -192,9 +200,9 @@ Message * convertInput(char * input, int i, Connection * con){
 	x->length = atoi(split);
 	//But check if atoi returned 0, which means it failed
 	if(x->length == 0){
-		printf("%d	ERR|M%dLN|\n", i, i);
 		char error[] = "ERR|MxLN|";
 		error[5] = i + '0';
+		printf("%d %s\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -209,9 +217,9 @@ Message * convertInput(char * input, int i, Connection * con){
 	
 	//Make sure that strtok split didn't return NULL; if it did, we don't have the right formatting
 	if(split == NULL){
-		printf("%d	ERR|M%dFT|\n", i, i);
 		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
+		printf("%d %s\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -225,9 +233,9 @@ Message * convertInput(char * input, int i, Connection * con){
 	strcpy(x->content, split);
 	//And then check if the message length is the same as reported
 	if(x->length != strlen(x->content)){
-		printf("%d	ERR|M%dLN|\n", i, i);
 		char error[] = "ERR|MxLN|";
 		error[5] = i + '0';
+		printf("%d %s\n", i, error);
 		
 		//Write the error message to the client and return NULL
 		write(con->fd, error, strlen(error));
@@ -250,11 +258,98 @@ Message * convertInput(char * input, int i, Connection * con){
 
 
 
+//Function to automate most of the read looping and checking
+Message * readClient(Connection * c, char * port, char * expected, int nmessage){
+	//Wait for "who's there" from client
+	char buf[2];
+	int nread;
+	int pipeCounter = 0;
+	//Start with 100 bytes for potential client input, but malloc it to allow for realloc. Keep an int to keep track of the size of the clientInput
+	int inputSize = 100;
+	char * clientInput = calloc(inputSize, 1);
+	
+	//Start the loop to read, checking for individual pipes along the way
+	while(pipeCounter < 3 && 0 < (nread = read(c->fd, buf, 1))){
+        buf[nread] = '\0';
+        if(buf[0] == '|') pipeCounter++;
+		
+		//Make sure we don't need to grow our clientInput string; if we do, grow it by 1.5x each time.
+		if(strlen(clientInput) == inputSize-1){
+			inputSize = inputSize * 1.5;
+			clientInput = realloc(clientInput, inputSize);
+		}
+		//Add the byte to the end of the string and keep going
+		strcat(clientInput, buf);
+		
+		//An ERR message only has two '|', so we need to explicitly check for an error message
+		//We don't check for specific errors, or even if the error's contents are correct (only the length), we just decide that an ERR is enough to close.
+		if(strlen(clientInput) == 9 && strncmp(clientInput, "ERR", 3) == 0){
+			printf("%s:%d		%s\n", port, nmessage, clientInput);
+			close(c->fd);
+			free(c);
+			return NULL;
+		}
+        //printf("read %d bytes %s : %d pipes\n", nread, buf, pipeCounter);
+    }
+    //If the read gives some unknown error
+    if(nread == -1){
+		char error[] = "ERR|Mx??|";
+		error[5] = nmessage + '0';
+		printf("%s:%d		%s : read -1 error\n", port, nmessage, error);
+		
+		//Close the socket and return NULL
+		close(c->fd);
+		free(c);
+		return NULL;
+	}
+    //Make sure that the message isn't too short for anything
+	if(strlen(clientInput) < 7){
+		char error[] = "ERR|MxFT|";
+		error[5] = nmessage + '0';
+		printf("%s:%d		%s : message too short\n", port, nmessage, error);
+		write(c->fd, error, strlen(error));
+		
+		//Close the socket and return NULL
+		close(c->fd);
+		free(c);
+		return NULL;
+	}
+	//Split the input into tokens and check if it's valid
+	Message * convertedInput = convertInput(clientInput, 1, c);
+	if(convertedInput == NULL){
+		close(c->fd);
+		free(c);
+		return NULL;
+	}
+	//Make sure it's the expected response; if expected is NULL, we don't expect any specific response.
+	else if(expected != NULL && strcmp(convertedInput->content, expected) != 0){
+		char error[] = "ERR|MxCT|";
+		error[5] = nmessage + '0';
+		printf("%s:%d		%s\n", port, nmessage, error);
+		write(c->fd, error, strlen(error));
+		
+		//Close the socket and return NULL
+		close(c->fd);
+		free(c);
+		return NULL;
+	}
+	
+	//If we get to this point, everything went well! Time to return the Message * convertedInput.
+	return convertedInput;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
 void * joke(void * arg){
     char host[100], port[10], buf[2];
     Connection * c = (Connection *) arg;
     int error, nread, pipeCounter, nmessage;
-	char * clientInput = malloc(100);
 	
 	// find out the name and port of the remote host
     error = getnameinfo((struct sockaddr *) &c->addr, c->addr_len, host, 100, port, 10, NI_NUMERICSERV);
@@ -269,10 +364,11 @@ void * joke(void * arg){
         return NULL;
     }
 	
-	struct timeval tv;
+	//Code to implement a timeout if so desired
+	/*struct timeval tv;
 	tv.tv_sec = 5;
 	tv.tv_usec = 0;
-	setsockopt(c->fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+	setsockopt(c->fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);*/
 	
     printf("\n[%s:%s] connection\n", host, port);
 	
@@ -286,62 +382,11 @@ void * joke(void * arg){
 	
 	
 	
-	//Wait for "who's there" from client
+	//Listen for "Who's there?" from client
 	nmessage = 1;
-	pipeCounter = 0;
-	memset(clientInput, '\0', 100);
-	while(pipeCounter < 3 && 0 < (nread = read(c->fd, buf, 1))){
-        buf[nread] = '\0';
-        if(buf[0] == '|') pipeCounter++;
-		strcat(clientInput, buf);
-		//An ERR message only has two '|', so we need to explicitly check for an error message
-		if(strlen(clientInput) == 9 && strncmp(clientInput, "ERR", 3) == 0){
-			printf("%s:%d		%s\n", port, nmessage, clientInput);
-			close(c->fd);
-			free(c);
-			return NULL;
-		}
-        //printf("read %d bytes %s : %d pipes\n", nread, buf, pipeCounter);
-    }
-    //If the read times out, it'll return -1, which means most likely a format error
-    if(nread == -1){
-		printf("%s:%d		ERR|M1FT| : read -1 error\n", port, nmessage);
-		char error[] = "ERR|MxFT|";
-		error[5] = nmessage + '0';
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-    //Make sure that the message isn't too short for anything
-	if(strlen(clientInput) < 7){
-		printf("%s:%d		ERR|M5FT| : message too short\n", port, nmessage);
-		char error[] = "ERR|MxFT|";
-		error[5] = nmessage + '0';
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	//Split the input into tokens and check if it's valid
-	Message * whosThere = convertInput(clientInput, 1, c);
-	if(whosThere == NULL){
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	else if(strcmp(whosThere->content, "Who's there?") != 0){
-		printf("%s:%d		ERR|M1CT|\n", port, nmessage);
-		char error[] = "ERR|M1CT|";
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	printf("%s:%d				%s\n", port, nmessage, clientInput);
+	Message * whosThere = readClient(c, port, "Who's there?", nmessage);
+	if(whosThere == NULL) return NULL;
+	printf("%s:%d				%s\n", port, nmessage, whosThere->content);
 	
 	
 	
@@ -353,64 +398,11 @@ void * joke(void * arg){
 	
 	
 	
-	//Wait for "Ya, who?" from client
+	//Listen for "Ya, who?" from client
 	nmessage = 3;
-	pipeCounter = 0;
-	memset(clientInput, '\0', 100);
-	while(pipeCounter < 3 && 0 < (nread = read(c->fd, buf, 1))){
-        buf[nread] = '\0';
-        if(buf[0] == '|') pipeCounter++;
-		strcat(clientInput, buf);
-		
-		//An ERR message only has two '|', so we need to explicitly check for an error message
-		if(strlen(clientInput) == 9 && strncmp(clientInput, "ERR", 3) == 0){
-			printf("%s:%d		%s\n", port, nmessage, clientInput);
-			close(c->fd);
-			free(c);
-			return NULL;
-		}
-        //printf("read %d bytes %s : %d pipes\n", nread, buf, pipeCounter);
-    }
-    //If the read times out, it'll return -1, which means most likely a format error
-    if(nread == -1){
-		printf("%s:%d		ERR|M3FT| : read -1 error\n", port, nmessage);
-		char error[] = "ERR|MxFT|";
-		error[5] = nmessage + '0';
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-    //Make sure that the message isn't too short for anything
-	if(strlen(clientInput) < 7){
-		printf("%s:%d		ERR|M5FT| : message too short\n", port, nmessage);
-		char error[] = "ERR|MxFT|";
-		error[5] = nmessage + '0';
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	//Split the input into tokens and check if it's valid
-	Message * whoWho = convertInput(clientInput, 3, c);
-	if(whoWho == NULL){
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	//Check to see if the content actually matches the expected value
-	else if(strcmp(whoWho->content, "Ya, who?") != 0){
-		printf("%s:%d		ERR|M3CT|\n", port, nmessage);
-		char error[] = "ERR|M3CT|";
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	printf("%s:%d				%s\n", port, nmessage, clientInput);
+	Message * whoWho = readClient(c, port, "Ya, who?", nmessage);
+	if(whoWho == NULL) return NULL;
+	printf("%s:%d				%s\n", port, nmessage, whoWho->content);
 	
 	
 	
@@ -422,54 +414,11 @@ void * joke(void * arg){
 	
 	
 	
-	//Wait for disgust from client
+	//Listen for disgust from client
 	nmessage = 5;
-	pipeCounter = 0;
-	memset(clientInput, '\0', 100);
-	while(pipeCounter < 3 && 0 < (nread = read(c->fd, buf, 1))){
-        buf[nread] = '\0';
-        if(buf[0] == '|') pipeCounter++;
-		strcat(clientInput, buf);
-		
-		//An ERR message only has two '|', so we need to explicitly check for an error message
-		if(strlen(clientInput) == 9 && strncmp(clientInput, "ERR", 3) == 0){
-			printf("%s:%d		%s\n", port, nmessage, clientInput);
-			close(c->fd);
-			free(c);
-			return NULL;
-		}
-        //printf("read %d bytes %s : %d pipes\n", nread, buf, pipeCounter);
-    }
-    //If the read times out, it'll return -1, which means most likely a format error
-    if(nread == -1){
-		printf("%s:%d		ERR|M5FT| : read -1 error\n", port, nmessage);
-		char error[] = "ERR|MxFT|";
-		error[5] = nmessage + '0';
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-    //Make sure that the message isn't too short for anything
-	if(strlen(clientInput) < 7){
-		printf("%s:%d		ERR|M5FT| : message too short\n", port, nmessage);
-		char error[] = "ERR|MxFT|";
-		error[5] = nmessage + '0';
-		write(c->fd, error, strlen(error));
-		//Close the socket and return NULL
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	
-	Message * disgust = convertInput(clientInput, 5, c);
-	if(disgust == NULL){
-		close(c->fd);
-		free(c);
-		return NULL;
-	}
-	printf("%s:%d				%s\n", port, nmessage, clientInput);
+	Message * disgust = readClient(c, port, NULL, nmessage);
+	if(disgust == NULL) return NULL;
+	printf("%s:%d				%s\n", port, nmessage, disgust->content);
 	
 	
 	
