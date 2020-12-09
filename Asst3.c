@@ -200,7 +200,7 @@ Message * convertInput(char * input, int i, Connection * con){
 	x->length = atoi(split);
 	//But check if atoi returned 0, which means it failed
 	if(x->length == 0){
-		char error[] = "ERR|MxLN|";
+		char error[] = "ERR|MxFT|";
 		error[5] = i + '0';
 		printf("%d %s\n", i, error);
 		
@@ -273,6 +273,11 @@ Message * readClient(Connection * c, char * port, char * expected, int nmessage)
         buf[nread] = '\0';
         if(buf[0] == '|') pipeCounter++;
 		
+		//Make sure it's not a space and it is any other character caught by isspace(); we then do nothing and just go to the next char
+		//This is specifically to handle telnet
+		//if(buf[0] != ' ' && isspace(buf[0]));
+		//if it IS a space and it's NOT any other character caught by isspace() we can add it to our string
+		
 		//Make sure we don't need to grow our clientInput string; if we do, grow it by 1.5x each time.
 		if(strlen(clientInput) == inputSize-1){
 			inputSize = inputSize * 1.5;
@@ -293,7 +298,7 @@ Message * readClient(Connection * c, char * port, char * expected, int nmessage)
     }
     //If the read gives some unknown error
     if(nread == -1){
-		char error[] = "ERR|Mx??|";
+		char error[] = "ERR|MxRE|";
 		error[5] = nmessage + '0';
 		printf("%s:%d		%s : read -1 error\n", port, nmessage, error);
 		
@@ -331,6 +336,9 @@ Message * readClient(Connection * c, char * port, char * expected, int nmessage)
 		
 		//Close the socket and return NULL
 		close(c->fd);
+		free(convertedInput->type);
+		free(convertedInput->content);
+		free(convertedInput);
 		free(c);
 		return NULL;
 	}

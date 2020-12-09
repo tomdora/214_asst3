@@ -257,7 +257,7 @@ void clientCorrect(char * argv[]){
 	//Send "who's there" response to the server
 	nmessage = 1;
 	char whoThere[] = "REG|12|Who's there?|";
-	write(sock, "ERR|M0LN|", strlen(whoThere));
+	write(sock, whoThere, strlen(whoThere));
 	
 	
 	

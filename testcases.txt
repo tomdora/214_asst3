@@ -1,0 +1,40 @@
+1) Correct case
+	Server starts, client connects.
+	My server sends "REG|13|Knock, knock.|"
+	My client receives it and sends back "REG|12|Who's there?|"
+	S -> "REG|3|Ya."
+	C -> "REG|8|Ya, who?"
+	S -> "REG|46|No thanks, I don't like having my data stolen.|"
+	C -> "REG|4|Ugh."
+	
+	This interaction goes off cleanly and the server terminates the connection after receiving the final message from the client.
+	
+2) Who is it?
+	Server starts, client connects.
+	My server sends "REG|13|Knock, knock.|"
+	My client sends back "REG|10|Who is it?|"
+	The server recognises this is incorrect content and sends the client "ERR|M1CT|" before shutting down the connection.
+	
+3) "Server error"
+	Server starts, client connects.
+	My server sends "REG|13|Knock, knock.|"
+	My client incorrectly decides this is an error and sends back the error message "ERR|M0LN|"
+	The server receives the error message, prints it to stdout, and shuts down the connection.
+	
+4) Left me hanging
+	Server starts, client connects.
+	My server sends "REG|13|Knock, knock.|"
+	The client fails to send the entire response; it sends "REG|12|Who's there"
+	The server will hang until the client either closes, or sends the final '|' to the server.
+	
+5) Length error
+	Server starts, client connects.
+	My server sends "REG|13|Knock, knock.|"
+	Client responds with either "REG|10|Who's there?|" or "REG|10|Who?|"
+	The server will detect that the content payload is not 10 bytes long, and will send "ERR|M1LN|" to the client before shutting down.
+	
+6) <NUMBER>
+	Server starts, client connects.
+	My server sends "REG|13|Knock, knock.|"
+	Client responds with "REG|TWELVE|Who's there?|"
+	The server recognises that the length field has non-numerical chars in it and sends back "ERR|M1FT|" before shutting down.
