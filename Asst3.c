@@ -40,11 +40,7 @@ int server(char *port){
     hint.ai_family = AF_UNSPEC;
     hint.ai_socktype = SOCK_STREAM;
     hint.ai_flags = AI_PASSIVE;
-	// setting AI_PASSIVE means that we want to create a listening socket
 	
-    // get socket and address info for listening port
-    // - for a listening socket, give NULL as the host name (because the socket is on
-    //   the local host)
     error = getaddrinfo(NULL, port, &hint, &address_list);
     if (error != 0){
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
@@ -60,12 +56,6 @@ int server(char *port){
             continue;
         }
 		
-        // if we were able to create the socket, try to set it up for
-        // incoming connections;
-        // 
-        // note that this requires two steps:
-        // - bind associates the socket with the specified port on the local host
-        // - listen sets up a queue for incoming connections and allows us to use accept
         if ((bind(sfd, addr->ai_addr, addr->ai_addrlen) == 0) &&
             (listen(sfd, BACKLOG) == 0)){
             break;
@@ -89,20 +79,9 @@ int server(char *port){
     	// create argument struct for child thread
 		con = malloc(sizeof(Connection));
         con->addr_len = sizeof(struct sockaddr_storage);
-        	// addr_len is a read/write parameter to accept
-        	// we set the initial value, saying how much space is available
-        	// after the call to accept, this field will contain the actual address length
 		
         // wait for an incoming connection
         con->fd = accept(sfd, (struct sockaddr *) &con->addr, &con->addr_len);
-        	// we provide
-        	// sfd - the listening socket
-        	// &con->addr - a location to write the address of the remote host
-        	// &con->addr_len - a location to write the length of the address
-        	//
-        	// accept will block until a remote host tries to connect
-        	// it returns a new socket that can be used to communicate with the remote
-        	// host, and writes the address of the remote hist into the provided location
         
         // if we got back -1, it means something went wrong
         if (con->fd == -1){
@@ -272,11 +251,6 @@ Message * readClient(Connection * c, char * port, char * expected, int nmessage)
 	while(pipeCounter < 3 && 0 < (nread = read(c->fd, buf, 1))){
         buf[nread] = '\0';
         if(buf[0] == '|') pipeCounter++;
-		
-		//Make sure it's not a space and it is any other character caught by isspace(); we then do nothing and just go to the next char
-		//This is specifically to handle telnet
-		//if(buf[0] != ' ' && isspace(buf[0]));
-		//if it IS a space and it's NOT any other character caught by isspace() we can add it to our string
 		
 		//Make sure we don't need to grow our clientInput string; if we do, grow it by 1.5x each time.
 		if(strlen(clientInput) == inputSize-1){
